@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib.pyplot as plt 
+from matplotlib.colors import BoundaryNorm
 
 prob_det = 0.1 # deterioration probability
 states_det = 10 # deterioration states 1,...,10
@@ -474,6 +476,65 @@ def value_iteration_D(
 
 ## All results
 
+def policy_to_matrix(policy: np.ndarray) -> np.ndarray:
+    """
+    Convert a length-100 policy vector (indexed like state_to_index)
+    to a 10x10 matrix over (d1,d2), where entry [d1-1, d2-1] is the action.
+    """
+    mat = np.zeros((states_det, states_det), dtype=int)
+    for idx, a in enumerate(policy):
+        d1, d2 = index_to_state(idx)
+        mat[d1 - 1, d2 - 1] = a
+    return mat
+
+
+def plot_policy_matrix(mat: np.ndarray, title: str, filename: str | None = None):
+    """
+    Plot a 10x10 policy matrix as a heatmap with discrete colors
+    for actions 0,1,2,3 and clear grid lines for each integer level.
+    """
+    states = mat.shape[0]
+
+    fig, ax = plt.subplots()
+
+    # discrete colormap for actions 0,1,2,3
+    base_cmap = plt.cm.get_cmap(plt.rcParams['image.cmap'], 4)
+    bounds = np.arange(-0.5, 4.5, 1)      # [-0.5, 0.5, ..., 3.5]
+    norm = BoundaryNorm(bounds, base_cmap.N)
+
+    # extent so that cell (1,1) is between 0.5 and 1.5 etc.
+    img = ax.imshow(
+        mat,
+        origin="lower",
+        cmap=base_cmap,
+        norm=norm,
+        extent=[0.5, states + 0.5, 0.5, states + 0.5],
+        interpolation="nearest",
+    )
+
+    # major ticks at 1,...,10
+    ax.set_xticks(np.arange(1, states + 1))
+    ax.set_yticks(np.arange(1, states + 1))
+
+    # minor ticks at cell boundaries, used to draw grid lines
+    ax.set_xticks(np.arange(0.5, states + 1, 1), minor=True)
+    ax.set_yticks(np.arange(0.5, states + 1, 1), minor=True)
+    ax.grid(which="minor", color="white", linestyle="-", linewidth=0.3)
+    ax.tick_params(which="minor", length=0)  # hide minor tick marks
+
+    cbar = fig.colorbar(img, ax=ax, ticks=[0, 1, 2, 3])
+    cbar.set_label("action")
+
+    ax.set_xlabel("d2 (deterioration level, 10 = failure)")
+    ax.set_ylabel("d1 (deterioration level, 10 = failure)")
+    ax.set_title(title)
+
+    if filename is not None:
+        plt.savefig(filename, bbox_inches="tight", dpi=300)
+    
+
+
+
 if __name__ == "__main__":
     # B1 – simulation
     avg_reward_sim = simulate_no_preventive(T=1_000_000, seed=42)
@@ -493,7 +554,18 @@ if __name__ == "__main__":
     phi_C, V_C, policy_C = value_iteration_C()
     print("C – optimal average reward (with preventive repair):", phi_C)
 
+    policy_C_mat = policy_to_matrix(policy_C)
+    plot_policy_matrix(policy_C_mat,
+                       title="Optimal policy – Exercise C",
+                       filename="policy_C.jpg")
+
     # D – optimal policy with preventive repair in any state
     phi_D, V_D, policy_D = value_iteration_D()
     print("D – optimal average reward (preventive in any state):", phi_D)
+
+    policy_D_mat = policy_to_matrix(policy_D)
+    plot_policy_matrix(policy_D_mat,
+                       title="Optimal policy – Exercise D",
+                       filename="policy_D.jpg")
+
 
